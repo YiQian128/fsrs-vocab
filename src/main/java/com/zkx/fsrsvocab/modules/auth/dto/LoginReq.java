@@ -6,9 +6,10 @@ import lombok.Data;
 @Data
 public class LoginReq {
 
-    @NotBlank
-    private String account; // 昵称 或 邮箱
+    /** 昵称或邮箱 */
+    @NotBlank(message = "account 不能为空")
+    private String account;
 
-    @NotBlank
+    @NotBlank(message = "password 不能为空")
     private String password;
 }

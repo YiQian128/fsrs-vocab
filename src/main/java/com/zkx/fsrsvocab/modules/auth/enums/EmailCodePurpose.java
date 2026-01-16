@@ -1,7 +1,9 @@
 package com.zkx.fsrsvocab.modules.auth.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum EmailCodePurpose {
     REGISTER,
-    RESET_PWD,
-    CHANGE_PWD
+    RESET_PWD
 }

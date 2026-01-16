@@ -8,17 +8,19 @@ import lombok.Data;
 @Data
 public class RegisterReq {
 
-    @NotBlank @Email
+    @Email(message = "email 格式不正确")
+    @NotBlank(message = "email 不能为空")
     private String email;
 
-    @NotBlank
-    private String code; // 邮箱验证码
+    @NotBlank(message = "code 不能为空")
+    @Size(min = 4, max = 10, message = "code 长度不正确")
+    private String code;
 
-    @NotBlank
-    @Size(min = 2, max = 20)
+    @NotBlank(message = "nickname 不能为空")
+    @Size(min = 2, max = 50, message = "nickname 长度 2~50")
     private String nickname;
 
-    @NotBlank
-    @Size(min = 6, max = 30)
+    @NotBlank(message = "password 不能为空")
+    @Size(min = 8, max = 72, message = "password 长度 8~72")
     private String password;
 }
