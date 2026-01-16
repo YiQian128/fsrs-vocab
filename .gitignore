@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+# Maven
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# local config (optional)
+application-*.local.yml

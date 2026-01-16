@@ -1,4 +1,4 @@
-package com.zkx.fsrsvocab.config;
+package com.zkx.fsrsvocab.config.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
