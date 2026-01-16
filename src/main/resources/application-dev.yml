@@ -11,6 +11,10 @@ spring:
     enabled: true
     baseline-on-migrate: true
 
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
 logging:
   level:
     root: info
