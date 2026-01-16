@@ -61,11 +61,18 @@
             <version>3.5.15</version>
         </dependency>
 
-        <!-- Flyway -->
+        <!-- Flyway core -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <!-- Flyway MySQL support -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>
         </dependency>
+
 
         <!-- OpenAPI / Swagger UI -->
         <dependency>
