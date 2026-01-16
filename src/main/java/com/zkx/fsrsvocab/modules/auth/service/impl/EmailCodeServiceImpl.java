@@ -8,95 +8,113 @@ import com.zkx.fsrsvocab.modules.auth.enums.EmailCodePurpose;
 import com.zkx.fsrsvocab.modules.auth.mapper.SysEmailCodeMapper;
 import com.zkx.fsrsvocab.modules.auth.service.EmailCodeService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.HexFormat;
-import java.util.Random;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailCodeServiceImpl implements EmailCodeService {
 
     private final SysEmailCodeMapper emailCodeMapper;
 
-    private static final int CODE_LEN = 6;
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    // 需求默认 10 分钟有效
     private static final int EXPIRE_MINUTES = 10;
+
+    // 最简频控：同邮箱 + 同用途 60 秒内只允许 1 次（后续可扩展同 IP、日上限等）
+    private static final int MIN_INTERVAL_SECONDS = 60;
 
     @Override
     public void sendCode(String email, EmailCodePurpose purpose, String requestIp, String requestUa) {
-        String code = generate6Digits();
-        String salt = randomSalt16();
-        String hash = sha256Hex(code + salt);
+        // 频控：查最近一条
+        SysEmailCode last = emailCodeMapper.selectOne(new LambdaQueryWrapper<SysEmailCode>()
+                .eq(SysEmailCode::getEmail, email)
+                .eq(SysEmailCode::getPurpose, purpose.name())
+                .orderByDesc(SysEmailCode::getCreatedAt)
+                .last("LIMIT 1"));
 
-        SysEmailCode row = new SysEmailCode();
-        row.setEmail(email);
-        row.setPurpose(purpose.name());
-        row.setCodeHash(hash);
-        row.setSalt(salt);
-        row.setExpiresAt(LocalDateTime.now().plusMinutes(EXPIRE_MINUTES));
-        row.setUsedAt(null);
-        row.setRequestIp(requestIp);
-        row.setRequestUa(requestUa);
-        row.setCreatedAt(LocalDateTime.now());
+        if (last != null && last.getCreatedAt() != null) {
+            LocalDateTime cutoff = LocalDateTime.now().minusSeconds(MIN_INTERVAL_SECONDS);
+            if (last.getCreatedAt().isAfter(cutoff)) {
+                throw BizException.of(ErrorCode.EMAIL_CODE_RATE_LIMIT);
+            }
+        }
 
-        emailCodeMapper.insert(row);
+        String code = String.format("%06d", RANDOM.nextInt(1_000_000));
+        String salt = randomSalt(16);
+        String hash = sha256Hex(code + ":" + salt);
 
-        // 开发阶段：先打印到日志。后续接 SMTP 再真正发邮件
-        System.out.println("[DEV] EmailCode purpose=" + purpose + ", email=" + email + ", code=" + code + " (valid " + EXPIRE_MINUTES + "m)");
+        SysEmailCode record = new SysEmailCode();
+        record.setEmail(email);
+        record.setPurpose(purpose.name());
+        record.setCodeHash(hash);
+        record.setSalt(salt);
+        record.setExpiresAt(LocalDateTime.now().plusMinutes(EXPIRE_MINUTES));
+        record.setUsedAt(null);
+        record.setRequestIp(requestIp);
+        record.setRequestUa(requestUa);
+        record.setCreatedAt(LocalDateTime.now());
+
+        emailCodeMapper.insert(record);
+
+        // 开发期不真发信：仅日志输出，便于 Swagger 测试闭环
+        log.info("[DEV] EmailCode purpose={}, email={}, code={} (valid {}m)", purpose, email, code, EXPIRE_MINUTES);
     }
 
     @Override
-    public boolean verifyCode(String email, EmailCodePurpose purpose, String code) {
-        SysEmailCode latest = emailCodeMapper.selectOne(
-                new LambdaQueryWrapper<SysEmailCode>()
-                        .eq(SysEmailCode::getEmail, email)
-                        .eq(SysEmailCode::getPurpose, purpose.name())
-                        .orderByDesc(SysEmailCode::getId)
-                        .last("LIMIT 1")
-        );
+    public void verifyAndConsume(String email, EmailCodePurpose purpose, String code) {
+        SysEmailCode record = emailCodeMapper.selectOne(new LambdaQueryWrapper<SysEmailCode>()
+                .eq(SysEmailCode::getEmail, email)
+                .eq(SysEmailCode::getPurpose, purpose.name())
+                .isNull(SysEmailCode::getUsedAt)
+                .orderByDesc(SysEmailCode::getCreatedAt)
+                .last("LIMIT 1"));
 
-        if (latest == null) {
-            return false;
+        if (record == null) {
+            throw BizException.of(ErrorCode.EMAIL_CODE_INVALID);
         }
-        if (latest.getUsedAt() != null) {
-            return false;
-        }
-        if (latest.getExpiresAt().isBefore(LocalDateTime.now())) {
-            return false;
+        if (record.getExpiresAt() == null || record.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw BizException.of(ErrorCode.EMAIL_CODE_INVALID);
         }
 
-        String calc = sha256Hex(code + latest.getSalt());
-        boolean ok = calc.equalsIgnoreCase(latest.getCodeHash());
-        if (ok) {
-            latest.setUsedAt(LocalDateTime.now());
-            emailCodeMapper.updateById(latest);
+        String expected = record.getCodeHash();
+        String actual = sha256Hex(code + ":" + record.getSalt());
+        if (!actual.equalsIgnoreCase(expected)) {
+            throw BizException.of(ErrorCode.EMAIL_CODE_INVALID);
         }
-        return ok;
+
+        // consume
+        record.setUsedAt(LocalDateTime.now());
+        emailCodeMapper.updateById(record);
     }
 
-    private String generate6Digits() {
-        int v = new Random().nextInt(900000) + 100000;
-        return String.valueOf(v);
-    }
-
-    private String randomSalt16() {
-        String chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-        Random r = new Random();
-        StringBuilder sb = new StringBuilder(16);
-        for (int i = 0; i < 16; i++) sb.append(chars.charAt(r.nextInt(chars.length())));
+    private static String randomSalt(int len) {
+        String chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < len; i++) {
+            sb.append(chars.charAt(RANDOM.nextInt(chars.length())));
+        }
         return sb.toString();
     }
 
-    private String sha256Hex(String s) {
+    private static String sha256Hex(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] dig = md.digest(s.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(dig);
+            byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : bytes) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
         } catch (Exception e) {
-            throw new BizException(ErrorCode.INTERNAL_ERROR, "验证码哈希失败");
+            throw new IllegalStateException(e);
         }
     }
 }
