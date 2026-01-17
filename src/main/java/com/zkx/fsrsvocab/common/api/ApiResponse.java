@@ -4,6 +4,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+
+/**
+ * 统一接口返回结构
+ *
+ * code: 业务码（0 表示成功，非 0 表示失败）
+ * message: 提示信息
+ * data: 业务数据
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

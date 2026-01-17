@@ -3,6 +3,10 @@ package com.zkx.fsrsvocab.common.exception;
 import com.zkx.fsrsvocab.common.api.ErrorCode;
 import lombok.Getter;
 
+
+/**
+ * 业务异常（可携带业务错误码）
+ */
 @Getter
 public class BizException extends RuntimeException {
 

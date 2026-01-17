@@ -18,6 +18,10 @@ public enum ErrorCode {
     USER_NOT_FOUND(41005, "用户不存在"),
     PASSWORD_WRONG(41006, "密码错误"),
 
+    // ✅ 新增：JWT 登录态相关
+    AUTH_UNAUTHORIZED(41007, "未登录或登录已过期"),
+    AUTH_FORBIDDEN(41008, "无权限访问"),
+
     // 50xxx：系统错误
     SYSTEM_ERROR(50000, "系统异常");
 
