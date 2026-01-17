@@ -22,6 +22,10 @@ public class SysUser {
     @TableField("password_hash")
     private String passwordHash;
 
+    /** 0/1：是否已验证邮箱（v4.2：注册后应为 true） */
+    @TableField("email_verified")
+    private Integer emailVerified;
+
     @TableField("nickname_changed_at")
     private LocalDateTime nicknameChangedAt;
 

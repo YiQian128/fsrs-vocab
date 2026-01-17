@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@MapperScan({"com.zkx.fsrsvocab.modules.auth.mapper"})
+@MapperScan({"com.zkx.fsrsvocab.modules.**.mapper"})
 public class FsrsVocabApplication {
 
     public static void main(String[] args) {

@@ -12,6 +12,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.stream.Collectors;
 
+
+/**
+ * 全局异常处理
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
